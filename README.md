@@ -1,5 +1,7 @@
 # MAYOMI
 
+![CI](https://github.com/Eisaac12/MAYOMI/actions/workflows/ci.yml/badge.svg)
+
 A minimal scaffold for the MAYOMI project.
 
 Quick start
