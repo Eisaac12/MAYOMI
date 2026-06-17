@@ -1,0 +1,26 @@
+version: '3.8'
+services:
+  aggregator:
+    build: .
+    environment:
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - OPENAI_KEY=${OPENAI_KEY}
+      - USE_LOCAL=${USE_LOCAL}
+      - LOCAL_LLM_URL=${LOCAL_LLM_URL}
+      - AGG_PORT=8081
+      - REDIS_URL=redis://redis:6379
+    ports:
+      - '8081:8081'
+    depends_on:
+      - redis
+  worker:
+    image: mayomi-aggregator
+    command: ["node","worker/worker.js"]
+    environment:
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+  redis:
+    image: redis:7
+    ports:
+      - '6379:6379'
