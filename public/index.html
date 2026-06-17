@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>∞ INFINITE SOUL MAP OS</title>
+  <style>
+    body { margin: 0; overflow: hidden; font-family: monospace; background: #000; }
+    #mapCanvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: grab; background: #0a0a2a; }
+    #info { position: fixed; bottom: 20px; left: 20px; background: rgba(0,0,0,0.7); color: #0ff; padding: 8px 16px; border-radius: 20px; z-index: 100; pointer-events: none; backdrop-filter: blur(4px); font-size: 12px; }
+    #soulCount { position: fixed; top: 20px; right: 20px; background: #000000aa; padding: 10px 20px; border-radius: 30px; color: #ffaa44; font-weight: bold; z-index: 100; font-size: 14px; border: 1px solid #0ff; }
+    .tooltip { position: fixed; background: #111; border-left: 3px solid #0ff; padding: 8px 12px; border-radius: 8px; font-size: 12px; display: none; z-index: 200; pointer-events: none; color: #ccc; }
+  </style>
+</head>
+<body>
+<canvas id="mapCanvas"></canvas>
+<div id="info">🔍 Zoom: scroll | Pan: drag | Infinite map | Souls = active IPs</div>
+<div id="soulCount">👁️ SOULS: 0</div>
+<div id="tooltip" class="tooltip"></div>
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const canvas = document.getElementById('mapCanvas');
+  const ctx = canvas.getContext('2d');
+  let width, height;
+  let view = { x: 0, y: 0, zoom: 1.0 };
+  let dragging = false;
+  let dragStart = { x: 0, y: 0 };
+  const souls = new Map();
+  const socket = io();
+
+  socket.on('soul_add', soul => {
+    souls.set(soul.ip, soul);
+    updateSoulCount();
+    draw();
+  });
+  socket.on('soul_remove', ip => {
+    souls.delete(ip);
+    updateSoulCount();
+    draw();
+  });
+  socket.on('infinite_terrain', tiles => { /* optional terrain events */ });
+
+  function updateSoulCount() {
+    document.getElementById('soulCount').innerHTML = `👁️ ACTIVE SOULS: ${souls.size}`;
+  }
+
+  function latLonToWorld(lat, lon) {
+    const x = (lon + 180) / 360 * 2000 - 1000;
+    const y = (90 - lat) / 180 * 1000 - 500;
+    return { x, y };
+  }
+
+  function worldToScreen(worldX, worldY) {
+    return {
+      x: width/2 + (worldX - view.x) * view.zoom,
+      y: height/2 + (worldY - view.y) * view.zoom
+    };
+  }
+
+  function draw() {
+    ctx.fillStyle = '#0a0a2a';
+    ctx.fillRect(0, 0, width, height);
+    const topLeft = worldToScreen(-1000, -500);
+    const bottomRight = worldToScreen(1000, 500);
+    ctx.strokeStyle = '#2a6f8f';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+
+    const gridStep = 200 * view.zoom;
+    const startX = Math.floor((view.x - width/2/view.zoom - 1500) / gridStep) * gridStep;
+    const startY = Math.floor((view.y - height/2/view.zoom - 1000) / gridStep) * gridStep;
+    for (let x = startX; x < view.x + width/2/view.zoom + 1500; x += gridStep) {
+      for (let y = startY; y < view.y + height/2/view.zoom + 1000; y += gridStep) {
+        if (x > -1100 && x < 1100 && y > -600 && y < 600) continue;
+        const screen = worldToScreen(x, y);
+        const seed = Math.floor(x*131071 + y);
+        const brightness = ((seed * 9301) % 255) / 255;
+        ctx.fillStyle = `rgba(100, 150, 255, ${0.3 + brightness*0.3})`;
+        ctx.beginPath();
+        ctx.arc(screen.x, screen.y, 2 + brightness*3, 0, Math.PI*2);
+        ctx.fill();
+      }
+    }
+
+    for (let soul of souls.values()) {
+      const world = latLonToWorld(soul.lat, soul.lon);
+      const screen = worldToScreen(world.x, world.y);
+      if (screen.x < -100 || screen.x > width+100 || screen.y < -100 || screen.y > height+100) continue;
+
+      const pulse = (Date.now() / 500) % (Math.PI*2);
+      const size = (soul.isLocal ? 8 : 4) + Math.sin(pulse) * 2;
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = soul.isLocal ? '#ffaa44' : '#0ff';
+      ctx.fillStyle = soul.isLocal ? '#ffaa44' : '#33ccff';
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y, size, 0, Math.PI*2);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(100,200,255,0.3)';
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y, size+3, 0, Math.PI*2);
+      ctx.fill();
+    }
+    ctx.shadowBlur = 0;
+  }
+
+  function handleMouseDown(e) {
+    dragging = true;
+    dragStart = { x: e.clientX, y: e.clientY };
+    canvas.style.cursor = 'grabbing';
+  }
+  function handleMouseMove(e) {
+    if (!dragging) return;
+    const dx = e.clientX - dragStart.x;
+    const dy = e.clientY - dragStart.y;
+    view.x -= dx / view.zoom;
+    view.y -= dy / view.zoom;
+    dragStart = { x: e.clientX, y: e.clientY };
+    draw();
+  }
+  function handleMouseUp() {
+    dragging = false;
+    canvas.style.cursor = 'grab';
+  }
+  function handleWheel(e) {
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    view.zoom = Math.max(0.1, Math.min(1000, view.zoom * delta));
+    draw();
+    e.preventDefault();
+  }
+
+  function resize() {
+    width = window.innerWidth;
+    height = window.innerHeight;
+    canvas.width = width;
+    canvas.height = height;
+    draw();
+  }
+
+  canvas.addEventListener('mousedown', handleMouseDown);
+  window.addEventListener('mousemove', handleMouseMove);
+  window.addEventListener('mouseup', handleMouseUp);
+  canvas.addEventListener('wheel', handleWheel);
+  window.addEventListener('resize', resize);
+  resize();
+  canvas.style.cursor = 'grab';
+
+  const tooltip = document.getElementById('tooltip');
+  canvas.addEventListener('mousemove', e => {
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left) * (width / rect.width);
+    const mouseY = (e.clientY - rect.top) * (height / rect.height);
+    let closest = null;
+    let minDist = 12;
+    for (let soul of souls.values()) {
+      const world = latLonToWorld(soul.lat, soul.lon);
+      const screen = worldToScreen(world.x, world.y);
+      const dx = screen.x - mouseX;
+      const dy = screen.y - mouseY;
+      const dist = Math.hypot(dx, dy);
+      if (dist < minDist) {
+        minDist = dist;
+        closest = soul;
+      }
+    }
+    if (closest) {
+      tooltip.style.display = 'block';
+      tooltip.style.left = (e.clientX + 15) + 'px';
+      tooltip.style.top = (e.clientY - 30) + 'px';
+      tooltip.innerHTML = `🌐 ${closest.ip}<br>📍 ${closest.city || 'Unknown'}, ${closest.country || ''}<br>${closest.isLocal ? '🖥️ LOCAL DEVICE' : '✨ ACTIVE SOUL'}`;
+    } else {
+      tooltip.style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>

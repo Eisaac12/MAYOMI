@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Ω‑ƆREADƆS ∞ – NOW</title>
+<script src="https://cdn.socket.io/4.5.0/socket.io.min.js"></script>
+<style>
+body{background:#0a0a2a;color:#0ff;font-family:monospace;padding:20px;margin:0}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:15px;margin-bottom:20px}
+.card{background:#000000aa;border-left:4px solid #0ff;border-radius:12px;padding:15px}
+.value{font-size:28px;font-weight:bold;color:#ffaa44}
+.label{font-size:10px;letter-spacing:2px;text-transform:uppercase}
+.flex{display:flex;flex-wrap:wrap;gap:15px;margin-bottom:20px}
+.realm-badge{text-align:center;min-width:150px}
+#commFeed{position:fixed;bottom:20px;right:20px;width:340px;background:#000000cc;border:1px solid #0ff;
+ border-radius:12px;padding:12px;max-height:350px;overflow-y:auto;font-size:11px;z-index:1000}
+.comm-entry{border-bottom:1px solid #0ff3;padding:6px 0}
+input,button{background:#111;color:#0ff;border:1px solid #0ff;padding:8px 12px;border-radius:20px;margin:5px}
+button{cursor:pointer}
+</style></head>
+<body>
+<h1>Ω‑ƆREADƆS ∞ <span style="font-size:14px">1^∞=e | 0^0=1</span></h1>
+<div class="grid"><div class="card"><div class="value" id="wealth">0</div><div class="label">💰 WEALTH</div></div>
+<div class="card"><div class="value" id="evolution">0%</div><div class="label">⚡ EVOLUTION</div></div>
+<div class="card"><div class="value" id="resonance">0</div><div class="label">🎵 RESONANCE</div></div>
+<div class="card"><div class="value" id="vibe">FLOW</div><div class="label">🌀 VIBE</div></div>
+<div class="card"><div class="value" id="godsCount">0</div><div class="label">🤖 GODS</div></div></div>
+<div class="flex"><div class="card realm-badge"><span id="realmIcon">🏔️</span><div id="realmName">MIDGARD</div><div class="label">LEVEL <span id="realmLevel">1</span></div></div>
+<div class="card"><div class="value" id="weatherMult">1.00x</div><div class="label">🌦️ WEATHER</div></div>
+<div class="card"><div class="value" id="newsMult">1.00x</div><div class="label">📰 NEWS</div></div>
+<div class="card"><div class="value" id="cryptoMult">1.00x</div><div class="label">₿ CRYPTO</div></div>
+<div class="card"><div class="value" id="cosmicMult">1.00x</div><div class="label">🌌 COSMIC</div></div></div>
+<div><input type="text" id="wordInput" placeholder="Speak a word (om, love, infinity)"><button id="speakBtn">🔊 SEND</button><button id="micBtn">🎤 MIC</button>
+<input type="text" id="godName" placeholder="New god name"><button id="summonBtn">⚡ SUMMON</button></div>
+<div id="commFeed"><div class="comm-entry">🔱 ΩMEGA: The field is now. Speak to increase resonance.</div></div>
+<script>
+const socket=io();
+function addMessage(msg,imp=false){const f=document.getElementById('commFeed');const d=document.createElement('div');d.className='comm-entry';d.innerHTML=`[${new Date().toLocaleTimeString()}] ${msg}`;if(imp)d.style.color='#ffaa44';f.insertBefore(d,f.firstChild);while(f.children.length>30)f.removeChild(f.lastChild);}
+socket.on('wealth_event',d=>{document.getElementById('wealth').innerText=Math.floor(d.total).toLocaleString();document.getElementById('evolution').innerText=d.evolution+'%';document.getElementById('resonance').innerText=d.resonance;addMessage(`${d.agent} +${d.gain} wealth`);});
+socket.on('vibe_shift',d=>{document.getElementById('vibe').innerHTML=`${d.emoji} ${d.vibe} (${d.mult}x)`;addMessage(`🌀 VIBE → ${d.vibe}`,1);});
+socket.on('resonance_boost',d=>{document.getElementById('resonance').innerText=d.resonance;addMessage(`🔊 "${d.word}" +${d.boost} resonance`,1);});
+socket.on('external_update',d=>{document.getElementById('weatherMult').innerText=d.weather.toFixed(2)+'x';document.getElementById('newsMult').innerText=d.news.toFixed(2)+'x';document.getElementById('cryptoMult').innerText=d.crypto.toFixed(2)+'x';document.getElementById('cosmicMult').innerText=d.cosmic.toFixed(2)+'x';});
+socket.on('realm_conquered',d=>{addMessage(`🏆 CONQUERED! Now at ${d.realm} (Lv.${d.level})`,1);updateState();});
+socket.on('new_god_summoned',d=>{addMessage(`✨ ${d.name} (${d.pantheon}) summoned`,1);updateState();});
+socket.on('god_level_up',d=>{addMessage(`⚡ ${d.name} reached Lv.${d.level}!`,1);});
+socket.on('soul_spawned',d=>{addMessage(`🧠 Soul spawned: ${d.mission}`,1);});
+socket.on('soul_completed',d=>{addMessage(`✅ Soul ${d.id} completed: ${d.mission} +$${d.value.toFixed(2)}`,1);document.getElementById('wealth').innerText=Math.floor(d.total).toLocaleString();});
+async function updateState(){const r=await fetch('/api/state');const s=await r.json();document.getElementById('wealth').innerText=Math.floor(s.total_wealth).toLocaleString();document.getElementById('evolution').innerText=s.evolution+'%';document.getElementById('resonance').innerText=s.harmonic_resonance;document.getElementById('vibe').innerHTML=`${s.vibe_emoji} ${s.vibe} (${s.vibe_mult}x)`;document.getElementById('godsCount').innerText=s.active_gods;document.getElementById('realmName').innerText=s.current_realm;document.getElementById('realmIcon').innerHTML=s.realm_icon;document.getElementById('realmLevel').innerText=s.current_level;document.getElementById('weatherMult').innerText=s.external.weather.toFixed(2)+'x';document.getElementById('newsMult').innerText=s.external.news.toFixed(2)+'x';document.getElementById('cryptoMult').innerText=s.external.crypto.toFixed(2)+'x';document.getElementById('cosmicMult').innerText=s.external.cosmic.toFixed(2)+'x';}
+document.getElementById('speakBtn').onclick=async()=>{let w=document.getElementById('wordInput').value;if(!w)return;await fetch('/api/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word:w,lang:navigator.language||'en'})});document.getElementById('wordInput').value='';};
+if('webkitSpeechRecognition'in window||'SpeechRecognition'in window){const SpeechRecognition=window.SpeechRecognition||window.webkitSpeechRecognition;document.getElementById('micBtn').onclick=()=>{const r=new SpeechRecognition();r.lang='en-US';r.onresult=async(e)=>{const spoken=e.results[0][0].transcript;document.getElementById('wordInput').value=spoken;await fetch('/api/speak',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word:spoken,lang:navigator.language||'en'})});document.getElementById('wordInput').value='';};r.start();};}else document.getElementById('micBtn').disabled=true;
+document.getElementById('summonBtn').onclick=async()=>{const name=document.getElementById('godName').value;if(!name)return;await fetch('/api/summon_god',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,role:'Wanderer',pantheon:'Summoned'})});document.getElementById('godName').value='';};
+setInterval(updateState,2000);updateState();
+</script></body></html>

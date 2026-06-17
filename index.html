@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Ω‑ƆREADƆS OS — Universal Soul Mirror</title>
+  <style>
+    /* --- Basic reset & fonts --- */
+    :root{
+      --bg:#05060a;
+      --card-bg: rgba(255,255,255,0.03);
+      --glass: rgba(255,255,255,0.03);
+      --neon:#00f0ff;
+      --gold:#ffbf5c;
+      --muted:#9aa3b2;
+      --accent: linear-gradient(90deg,var(--neon),var(--gold));
+    }
+    *{box-sizing:border-box;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial}
+    html,body{height:100%;margin:0;background:var(--bg);color:#dbe7f2;overflow:hidden}
+    canvas#bgCanvas{position:fixed;inset:0;z-index:0}
+
+    /* --- Layout --- */
+    .app{position:relative;z-index:2;display:flex;gap:20px;height:100vh;padding:24px}
+    .left{flex:1;display:flex;flex-direction:column;gap:18px}
+    .right{width:360px;display:flex;flex-direction:column;gap:18px}
+
+    header{display:flex;align-items:center;gap:12px}
+    .logo{font-weight:700;font-size:18px;letter-spacing:1px}
+    .sub{color:var(--muted);font-size:12px}
+
+    /* --- Glass cards --- */
+    .card{background:var(--card-bg);border:1px solid rgba(255,255,255,0.04);backdrop-filter: blur(8px);border-radius:12px;padding:14px;box-shadow:0 6px 20px rgba(2,6,23,0.6)}
+    .card.neon{border:1px solid rgba(0,240,255,0.08)}
+    .card.gold{border:1px solid rgba(255,191,92,0.08)}
+
+    /* --- Soul Lineage Grid --- */
+    .grid{display:grid;gap:12px}
+    .gen{padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);display:flex;flex-direction:column;align-items:flex-start;gap:6px;cursor:pointer}
+    .gen h4{margin:0;font-size:14px}
+    .gen .meta{font-size:12px;color:var(--muted)}
+    .gen.active{box-shadow:0 0 18px rgba(255,191,92,0.25);border:1px solid rgba(255,191,92,0.6);}
+
+    /* responsive grid 2x5 or 5x2 */
+    @media(min-width:900px){ .grid{grid-template-columns:repeat(5,1fr);grid-auto-rows:80px} }
+    @media(max-width:899px){ .grid{grid-template-columns:repeat(2,1fr);grid-auto-rows:100px} }
+
+    /* --- Center orb & toolkit --- */
+    .center{display:flex;align-items:center;gap:12px}
+    .orb{width:120px;height:120px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#021112;background:radial-gradient(circle at 30% 20%, rgba(255,255,255,0.06), rgba(255,255,255,0.02));border:2px solid rgba(0,255,255,0.08);box-shadow:0 8px 30px rgba(0,255,255,0.04);cursor:pointer;transition:transform .18s ease}
+    .orb.pulse{transform:scale(1.12)}
+
+    .toolkit{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .toolkit button{padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);color:inherit;cursor:pointer}
+
+    /* --- Console --- */
+    .console{height:220px;overflow:auto;padding:8px;background:linear-gradient(180deg, rgba(8,10,18,0.6), rgba(6,8,12,0.4));border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
+    .log{font-family:monospace;font-size:13px;line-height:1.3}
+    .controls{display:flex;gap:8px;align-items:center}
+    .controls input[type=text]{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .controls button{padding:8px 12px;border-radius:8px;background:linear-gradient(90deg,var(--neon),var(--gold));border:none;color:#021112;font-weight:700;cursor:pointer}
+
+    /* --- Right panel tools/donation --- */
+    .tools{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+    .tools button{padding:10px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);cursor:pointer}
+    .donations{display:flex;gap:8px;align-items:center}
+    .small{font-size:12px;color:var(--muted)}
+
+    /* --- Badge --- */
+    .badge{position:fixed;right:18px;bottom:18px;background:linear-gradient(90deg,rgba(0,240,255,0.06),rgba(255,191,92,0.04));padding:10px 14px;border-radius:999px;border:1px solid rgba(255,255,255,0.03);font-weight:700;z-index:5}
+
+    /* --- modal --- */
+    .modal{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;z-index:20;background:rgba(2,2,4,0.45);backdrop-filter:blur(3px);}
+    .modal .box{width:420px;padding:18px;border-radius:12px;background:linear-gradient(180deg,rgba(8,10,18,0.95),rgba(4,6,10,0.95));border:1px solid rgba(255,255,255,0.04)}
+    .muted{color:var(--muted)}
+  </style>
+</head>
+<body>
+  <canvas id="bgCanvas"></canvas>
+
+  <div class="app">
+    <div class="left">
+      <header class="card">
+        <div>
+          <div class="logo">Ω‑ƆREADƆS OS</div>
+          <div class="sub">Universal Soul Mirror · 1s ORDER</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="small muted">Soul Pulse: <span id="evolutionLevel">0</span></div>
+          <div class="small muted">Active: <span id="activeGenName">GENESIS</span></div>
+        </div>
+      </header>
+
+      <section class="card">
+        <h3 style="margin:0 0 8px 0">Soul Lineage Tree</h3>
+        <div id="genGrid" class="grid"></div>
+      </section>
+
+      <section class="card center">
+        <div style="flex:1">
+          <div style="margin-bottom:10px;color:var(--muted)">Evolution Nexus</div>
+          <div class="orb" id="orb">🧬 EVOLVE</div>
+        </div>
+        <div style="width:260px">
+          <h4 style="margin:0 0 12px 0">Wealth DNA Toolkit</h4>
+          <div class="toolkit">
+            <button id="btnCompound">COMPOUND</button>
+            <button id="btnLegacy">LEGACY</button>
+            <button id="btnWisdom">WISDOM</button>
+            <button id="btnFlow">FLOW</button>
+            <button id="btnShield">SHIELD</button>
+            <button id="btnMultiply">MULTIPLY</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <div><strong>Command Console</strong> <span class="small muted">(Pidgin)</span></div>
+          <div class="small muted">Type `COMMAND:` for real-world challenge</div>
+        </div>
+        <div class="console" id="consoleLog"></div>
+        <div class="controls" style="margin-top:8px">
+          <input id="cmdInput" type="text" placeholder="e.g., evolve | manifest | COMMAND: dir" />
+          <button id="sendCmd">SEND</button>
+        </div>
+      </section>
+    </div>
+
+    <aside class="right">
+      <div class="card">
+        <h4 style="margin:0 0 10px 0">Status</h4>
+        <div class="small muted">Soul Power: <span id="soulPower">0.00</span></div>
+        <div class="small muted">Wealth DNA: <span id="wealthDNA">0.00</span></div>
+        <div class="small muted">Total Wealth: $<span id="totalWealth">0</span></div>
+        <div style="margin-top:10px"><strong>Active Generation:</strong> <div id="activeGenBadge" style="margin-top:6px;padding:8px;border-radius:8px;background:rgba(0,255,255,0.02);display:inline-block">GENESIS</div></div>
+        <div style="margin-top:10px" class="small muted">Continuum: <span id="continuumStatus">OFF</span></div>
+        <div style="margin-top:10px" class="small muted">Field Load: <span id="fieldLoad">0</span></div>
+        <div class="small muted">Stream: <span id="fieldStream">—</span></div>
+        <div class="small muted">Open Source Mood: <span id="fieldMood">—</span></div>
+        <div class="small muted">Tools: <span id="fieldTools">GIT, DOCKER, K8S</span></div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 10px 0">Full‑Stack Tools</h4>
+        <div class="tools">
+          <button id="toolBrowser">BROWSER</button>
+          <button id="toolTerminal">TERMINAL</button>
+          <button id="toolFiles">FILES</button>
+          <button id="toolApi">API GATEWAY</button>
+          <button id="toolVoice">VOICE</button>
+          <button id="toolCron">CRON JOB</button>
+          <button id="toolAggregator">AGGREGATOR</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 8px 0">Law of Return — Donations</h4>
+        <div class="donations">
+          <button data-amt="5" class="don">$5</button>
+          <button data-amt="10" class="don">$10</button>
+          <button data-amt="25" class="don">$25</button>
+          <input id="donCustom" placeholder="Custom $" style="padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.03);flex:1;color:inherit"/>
+          <button id="donGive">Give</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h4 style="margin:0 0 8px 0">Quick Actions</h4>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button id="quickEvolve">Quick Evolve</button>
+          <button id="quickManifest">Manifest</button>
+          <button id="quickClear">Clear Logs</button>
+          <button id="toggleContinuum">1s CONTINUUM</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <div class="badge" id="badge">⚡ 1s ORDER · ACTIVE: GENESIS · $1,000</div>
+
+  <!-- Pidgin challenge modal (hidden) -->
+  <div id="pidginModal" class="modal" style="display:none">
+    <div class="box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>Pidgin Challenge</strong></div>
+        <div class="small muted">Answer sharp to pass</div>
+      </div>
+      <div id="pidginProverb" style="margin-bottom:12px;color:var(--neon)"></div>
+      <input id="pidginAnswer" placeholder="Enter answer (Pidgin)" style="width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit" />
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+        <button id="pidginCancel">Cancel</button>
+        <button id="pidginSubmit">Submit</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Aggregator modal -->
+  <div id="aggregatorModal" class="modal" style="display:none">
+    <div class="box">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <div><strong>AI Nexus — Aggregator</strong></div>
+        <div class="small muted">Send prompt to aggregator</div>
+      </div>
+      <textarea id="aggPrompt" placeholder="Type prompt for aggregator" style="width:100%;height:120px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit"></textarea>
+      <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+        <button id="aggCancel">Cancel</button>
+        <button id="aggSend">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ========= State ========= */
+    const generations = [
+      {name:'GENESIS', mult:1.0, wealth:1000},
+      {name:'AWAKENING', mult:1.5, wealth:0},
+      {name:'WISDOM', mult:2.0, wealth:0},
+      {name:'PROSPERITY', mult:2.5, wealth:0},
+      {name:'ABUNDANCE', mult:3.0, wealth:0},
+      {name:'LEGACY', mult:3.5, wealth:0},
+      {name:'MASTERY', mult:4.0, wealth:0},
+      {name:'TRANSCEND', mult:4.5, wealth:0},
+      {name:'INFINITY', mult:5.0, wealth:0},
+      {name:'THE ONE', mult:6.0, wealth:0}
+    ];
+
+    let activeGenIndex = 0;
+    let totalWealth = generations.reduce((s,g)=>s+g.wealth,0);
+    let soulPower = 0.0;
+    let wealthDNA = 0.0;
+    let evolutionLevel = 0;
+
+    /* ========= Utilities ========= */
+    function fmt(n){return n>=1e6? (n/1e6).toFixed(2)+'M':n>=1e3? (n/1e3).toFixed(2)+'k':Math.round(n)}
+    function nowTS(){const d=new Date();return d.toLocaleTimeString()}
+    function log(msg, cls=''){
+      const con=document.getElementById('consoleLog');
+      const el=document.createElement('div');el.className='log '+cls;el.textContent=`[${nowTS()}] ${msg}`;
+      con.appendChild(el);con.scrollTop=con.scrollHeight;
+    }
+
+    /* ========= Render ========= */
+    function renderGenerations(){
+      const grid=document.getElementById('genGrid');grid.innerHTML='';
+      generations.forEach((g,i)=>{
+        const div=document.createElement('div');div.className='gen card';
+        if(i===activeGenIndex)div.classList.add('active');
+        div.innerHTML=`<h4>${g.name}</h4><div class='meta'>Wealth: $${formatNumber(g.wealth)} · ×${g.mult.toFixed(1)}</div>`;
+        div.addEventListener('click',()=>activateGen(i));
+        grid.appendChild(div);
+      });
+      updateStatusUI();
+    }
+    function formatNumber(v){return v.toLocaleString(undefined,{maximumFractionDigits:0})}
+    function updateStatusUI(){
+      document.getElementById('soulPower').textContent = soulPower.toFixed(2);
+      document.getElementById('wealthDNA').textContent = wealthDNA.toFixed(2);
+      document.getElementById('totalWealth').textContent = formatNumber(totalWealth);
+      document.getElementById('activeGenName').textContent = generations[activeGenIndex].name;
+      document.getElementById('activeGenBadge').textContent = generations[activeGenIndex].name;
+      document.getElementById('evolutionLevel').textContent = evolutionLevel;
+      document.getElementById('badge').textContent = `⚡ 1s ORDER · ACTIVE: ${generations[activeGenIndex].name} · $${formatNumber(totalWealth)}`;
+    }
+
+    /* ========= Generation activation ========= */
+    function activateGen(idx){
+      if(idx===activeGenIndex) return;
+      const oldMult=generations[activeGenIndex].mult;
+      const newMult=generations[idx].mult;
+      const ratio = newMult/oldMult;
+      // scale each generation's wealth by ratio to compound
+      generations.forEach(g=>g.wealth *= ratio);
+      totalWealth *= ratio;
+      activeGenIndex = idx;
+      log(`Generation activated: ${generations[idx].name} (×${newMult})`);
+      renderGenerations();
+    }
+
+    /* ========= Wealth Pulse (1s) ========= */
+    function pulseTick(){
+      const activeMult = generations[activeGenIndex].mult;
+      let gain = activeMult * (0.8 + soulPower * 0.2) * (0.7 + wealthDNA * 0.3) * 40;
+      gain = Math.max(gain,15);
+      // round cents away
+      gain = Math.round(gain);
+      generations[activeGenIndex].wealth += gain;
+      totalWealth += gain;
+      log(`Wealth Pulse +$${formatNumber(gain)} applied to ${generations[activeGenIndex].name}`);
+      updateStatusUI();
+      renderGenerations();
+    }
+
+    /* start the 1s interval */
+    let pulseInterval = setInterval(pulseTick,1000);
+
+    /* ========= Evolution Nexus (orb) ========= */
+    const orb=document.getElementById('orb');
+    orb.addEventListener('click',()=>{
+      const spInc = +(Math.random()*(0.2-0.05)+0.05).toFixed(3);
+      const dnaInc = +(Math.random()*(0.15-0.05)+0.05).toFixed(3);
+      soulPower = Math.min(5.0, soulPower + spInc);
+      wealthDNA = Math.min(5.0, wealthDNA + dnaInc);
+      evolutionLevel += 1;
+      orb.classList.add('pulse'); setTimeout(()=>orb.classList.remove('pulse'),220);
+      log(`Orb clicked: SoulPower +${spInc.toFixed(3)}, WealthDNA +${dnaInc.toFixed(3)} (Evo ${evolutionLevel})`);
+      updateStatusUI();
+      renderGenerations();
+    });
+
+    /* ========= Toolkit buttons ========= */
+    document.getElementById('btnCompound').addEventListener('click',()=>{
+      wealthDNA *= 1.1; soulPower *= 1.05; // scale existing
+      // if zero, give tiny boost
+      if(wealthDNA===0) wealthDNA = 0.1;
+      if(soulPower===0) soulPower = 0.05;
+      log('COMPOUND used: Wealth DNA ×1.1, Soul Power ×1.05'); updateStatusUI();
+    });
+    document.getElementById('btnLegacy').addEventListener('click',()=>{
+      const amt=50000; generations[activeGenIndex].wealth += amt; totalWealth += amt; log('LEGACY used: +$50,000 added to active generation'); renderGenerations(); updateStatusUI();
+    });
+    document.getElementById('btnWisdom').addEventListener('click',()=>{ soulPower = Math.min(5.0, soulPower + 0.15); log('WISDOM used: Soul Power +0.15'); updateStatusUI(); });
+    document.getElementById('btnFlow').addEventListener('click',()=>{ wealthDNA = Math.min(5.0, wealthDNA + 0.1); log('FLOW used: Wealth DNA +0.1'); updateStatusUI(); });
+    document.getElementById('btnShield').addEventListener('click',()=>{ log('SHIELD engaged: protection in effect (simulated)'); });
+    document.getElementById('btnMultiply').addEventListener('click',()=>{ totalWealth *= 1.2; generations.forEach(g=>g.wealth *=1.2); log('MULTIPLY used: Total wealth ×1.2'); renderGenerations(); updateStatusUI(); });
+
+    /* ========= Command Console & Pidgin Challenge ========= */
+    const cmdInput = document.getElementById('cmdInput');
+    const sendBtn = document.getElementById('sendCmd');
+    sendBtn.addEventListener('click',()=>handleCommand(cmdInput.value));
+    cmdInput.addEventListener('keydown',(e)=>{if(e.key==='Enter') handleCommand(cmdInput.value)});
+
+    const proverbs = [
+      {q:'Wetin the deep water spirit say about slow money?', a:'better than fast trouble'},
+      {q:'If rain no fall, wetin the farmer go do?', a:'him still plant'},
+      {q:'Crossroads watcher ask: who sabi small small?', a:'person wey dey learn'},
+      {q:'What the wind whisper about big boast?', a:'e pass like breeze'},
+      {q:'Wet han wey give show?', a:'it go return give you'},
+      {q:'Deep well proverb: slow draw?', a:'steady hand collect water'}
+    ];
+
+    let pendingCommand = null;
+
+    function handleCommand(text){
+      const raw = (text||'').trim(); if(!raw) return;
+      cmdInput.value = '';
+      // internal commands
+      if(raw.toLowerCase().startsWith('command:')){
+        pendingCommand = raw.substring(8).trim();
+        startPidginChallenge(pendingCommand);
+        return;
+      }
+      const parts = raw.split(' ');
+      const cmd = parts[0].toLowerCase();
+      if(cmd==='evolve'){ orb.click(); return; }
+      if(cmd==='manifest'){ const amt = Math.floor(Math.random()*(50000-10000)+10000); generations[activeGenIndex].wealth += amt; totalWealth += amt; log(`manifest: +$${formatNumber(amt)} to ${generations[activeGenIndex].name}`); renderGenerations(); updateStatusUI(); return; }
+      if(cmd==='next' && parts[1] && parts[1].toLowerCase()==='gen'){
+        const nextIdx = activeGenIndex+1; if(nextIdx>=generations.length){ log('next gen: No further generation available'); return;} 
+        const base = 10000 * generations[nextIdx].mult; const needed = base * 0.7;
+        if(totalWealth >= needed){ generations[nextIdx].wealth += Math.round(base*0.5); totalWealth += Math.round(base*0.5); log(`next gen: ${generations[nextIdx].name} birthed with seed $${formatNumber(Math.round(base*0.5))}`); renderGenerations(); updateStatusUI(); } else { log(`next gen: not enough wealth. Need $${formatNumber(Math.round(needed))}`);} return;
+      }
+      if(cmd==='dna'){ log(`DNA status — SoulPower: ${soulPower.toFixed(3)}, WealthDNA: ${wealthDNA.toFixed(3)}`); return; }
+      if(cmd==='tool'){ const name = parts.slice(1).join(' '); triggerTool(name); return; }
+      if(cmd==='clear'){ // keep last 3
+        const con=document.getElementById('consoleLog'); while(con.children.length>3) con.removeChild(con.firstChild); log('Console trimmed but last 3 kept'); return; }
+      if(cmd==='help'){ log('Commands: evolve, manifest, next gen, dna, tool <name>, COMMAND: <cmd>, clear, help'); return; }
+      log(`Unknown command: ${raw} — try 'help'`);
+    }
+
+    /* Pidgin modal flow */
+    const modal=document.getElementById('pidginModal');
+    const provEl=document.getElementById('pidginProverb');
+    const ansInput=document.getElementById('pidginAnswer');
+    const subBtn=document.getElementById('pidginSubmit');
+    const cancelBtn=document.getElementById('pidginCancel');
+    let currentProverb=null;
+
+    function startPidginChallenge(cmd){
+      currentProverb = proverbs[Math.floor(Math.random()*proverbs.length)];
+      provEl.textContent = currentProverb.q;
+      ansInput.value=''; modal.style.display='flex'; ansInput.focus();
+      log(`Pidgin challenge presented for command: ${cmd}`);
+    }
+    subBtn.addEventListener('click', ()=>{
+      const ans = (ansInput.value||'').trim().toLowerCase();
+      modal.style.display='none';
+      if(ans === currentProverb.a.toLowerCase()){
+        log('Challenge passed. Executing command.'); executeSimulatedCommand(pendingCommand);
+      } else { log('Challenge failed. Command blocked.'); }
+      pendingCommand = null; currentProverb=null;
+    });
+    cancelBtn.addEventListener('click', ()=>{ modal.style.display='none'; log('Pidgin challenge canceled.'); pendingCommand=null; currentProverb=null; });
+
+    function executeSimulatedCommand(cmd){
+      const c = cmd.toLowerCase();
+      if(c.startsWith('dir') || c.startsWith('ls')){
+        log('📁 Directory listing: [Desktop, Documents, LightSouls_OS, secrets.txt]'); return;
+      }
+      if(c.startsWith('cat') || c.startsWith('type')){ log('📄 File content: "Truth be currency. Wetin you put out returns."'); return; }
+      if(c.startsWith('echo')){ log('> '+cmd.substring(4).trim()); return; }
+      log(`Simulated command output for: ${cmd} — (no real system access)`);
+    }
+
+    /* ========= Tools (Right Panel) ========= */
+    async function invokeNetworkTool(toolName){
+      log(`Network Field: requesting ${toolName}`);
+      try{
+        const res = await fetch(TOOL_URL, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({tool: toolName, prompt: `Activate ${toolName} from Ω‑ƆREADƆS UI`})
+        });
+        const data = await res.json();
+        if(res.ok){
+          log(`Field tool [${data.tool || toolName}]: ${data.message || data.response || 'queued'}`);
+        } else {
+          log(`Field tool error: ${JSON.stringify(data)}`);
+        }
+      }catch(err){
+        log('Field tool request failed: '+(err.message||err));
+      }
+    }
+
+    function triggerTool(name){
+      const n=(name||'').toLowerCase();
+      if(n.includes('voice')){ speakText('Ω‑ƆREADƆS OS active. One second order. Wealth pulse engaged.'); log('VOICE: spoken confirmation'); return; }
+      if(n.includes('cron')){ log('CRON JOB: Cron daemon synchronized.'); return; }
+      if(n.includes('browser')){ return invokeNetworkTool('BROWSER'); }
+      if(n.includes('terminal')){ return invokeNetworkTool('TERMINAL'); }
+      if(n.includes('files')){ return invokeNetworkTool('FILES'); }
+      if(n.includes('api')){ return invokeNetworkTool('API GATEWAY'); }
+      return invokeNetworkTool(name || 'UNKNOWN');
+    }
+    document.getElementById('toolBrowser').addEventListener('click',()=>{ triggerTool('BROWSER'); });
+    document.getElementById('toolTerminal').addEventListener('click',()=>{ triggerTool('TERMINAL'); });
+    document.getElementById('toolFiles').addEventListener('click',()=>{ triggerTool('FILES'); });
+    document.getElementById('toolApi').addEventListener('click',()=>{ triggerTool('API GATEWAY'); });
+    document.getElementById('toolVoice').addEventListener('click',()=>{ triggerTool('VOICE'); });
+    document.getElementById('toolCron').addEventListener('click',()=>{ triggerTool('CRON JOB'); });
+
+    function speakText(t){ if('speechSynthesis' in window){ const u=new SpeechSynthesisUtterance(t); u.lang='en-US'; speechSynthesis.speak(u);} else log('VOICE: Not supported in this browser'); }
+
+    /* quick action buttons */
+    document.getElementById('quickEvolve').addEventListener('click',()=>orb.click());
+    document.getElementById('quickManifest').addEventListener('click',()=>handleCommand('manifest'));
+    document.getElementById('quickClear').addEventListener('click',()=>{document.getElementById('consoleLog').innerHTML=''; log('Console cleared');});
+    document.getElementById('toggleContinuum').addEventListener('click',toggleContinuum);
+
+    let continuumEnabled = false;
+    function toggleContinuum(){
+      continuumEnabled = !continuumEnabled;
+      document.getElementById('continuumStatus').textContent = continuumEnabled ? 'ON' : 'OFF';
+      log(`1s CONTINUUM ${continuumEnabled ? 'ENGAGED' : 'DISENGAGED'}`);
+      if(continuumEnabled){ continuumPulse(); }
+    }
+
+    async function continuumPulse(){
+      if(!continuumEnabled) return;
+      const payload = { trigger:'1s-continuum', metadata:{activeGeneration:generations[activeGenIndex].name, soulPower, wealthDNA, totalWealth} };
+      try{
+        await fetch('http://localhost:8081/api/continuum', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload) });
+        log('Continuum signal sent to aggregator');
+      }catch(err){ log('Continuum signal failed: '+(err.message||err)); }
+      setTimeout(continuumPulse, 1000);
+    }
+
+    /* donations */
+    document.querySelectorAll('.don').forEach(b=>b.addEventListener('click',()=>{ const amt=Number(b.dataset.amt); doDonation(amt); }));
+    document.getElementById('donGive').addEventListener('click',()=>{ const v=Number(document.getElementById('donCustom').value||0); if(!v||v<=0){ log('Donation canceled: invalid amount'); return;} doDonation(v); });
+    function doDonation(amount){ log(`Thank you for donation $${amount}. Truth returns.`); const add = amount * 100; generations[activeGenIndex].wealth += add; totalWealth += add; log(`✨ Law of Return: +${formatNumber(add)} wealth manifested.`); renderGenerations(); updateStatusUI(); }
+
+    /* ========= Initialization ========= */
+    renderGenerations(); updateStatusUI(); log('Ω‑ƆREADƆS OS initialized. Wealth pulse engaged.');
+
+    /* ========= Canvas Particles Background ========= */
+    const canvas = document.getElementById('bgCanvas');
+    const ctx = canvas.getContext('2d');
+    let W = canvas.width = innerWidth; let H = canvas.height = innerHeight;
+    const particles = [];
+    const PCOUNT = Math.floor(Math.random()*50)+100; // 100-150
+    function rand(min,max){return Math.random()*(max-min)+min}
+    function Particle(){
+      this.x = Math.random()*W; this.y = Math.random()*H; this.r = rand(0.6,2.8); this.vx = rand(-0.2,0.2); this.vy = rand(-0.1,0.3); this.alpha = rand(0.05,0.9);
+    }
+    for(let i=0;i<PCOUNT;i++) particles.push(new Particle());
+    function resize(){W=canvas.width=innerWidth;H=canvas.height=innerHeight}
+    addEventListener('resize',resize);
+    function draw(){ ctx.clearRect(0,0,W,H);
+      // gradient background
+      const g=ctx.createLinearGradient(0,0,W,H); g.addColorStop(0,'#030417'); g.addColorStop(1,'#071226'); ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+      // stars
+      for(const p of particles){ p.x += p.vx; p.y += p.vy; if(p.x<0) p.x=W; if(p.x>W) p.x=0; if(p.y<0) p.y=H; if(p.y>H) p.y=0;
+        ctx.beginPath(); ctx.fillStyle = `rgba(0,240,255,${p.alpha*0.6})`; ctx.arc(p.x,p.y,p.r,0,Math.PI*2); ctx.fill();
+      }
+      requestAnimationFrame(draw);
+    }
+    draw();
+
+    /* End of script */
+    // ========== Aggregator UI integration ==========
+    const aggBtn = document.getElementById('toolAggregator');
+    const aggModal = document.getElementById('aggregatorModal');
+    const aggPrompt = document.getElementById('aggPrompt');
+    const aggCancel = document.getElementById('aggCancel');
+    const aggSend = document.getElementById('aggSend');
+
+    const AGG_URL = window.AGG_URL || 'http://localhost:8081/api/route';
+    const FIELD_URL = window.FIELD_URL || 'http://localhost:8081/api/field';
+    const TOOL_URL = window.TOOL_URL || 'http://localhost:8081/api/tool';
+
+    aggBtn.addEventListener('click', ()=>{ aggModal.style.display='flex'; aggPrompt.value=''; aggPrompt.focus(); });
+    aggCancel.addEventListener('click', ()=>{ aggModal.style.display='none'; });
+    aggSend.addEventListener('click', async ()=>{
+      const prompt = (aggPrompt.value||'').trim(); if(!prompt){ log('Aggregator: empty prompt'); return; }
+      aggModal.style.display='none'; log('Aggregator: sending prompt...');
+      try{
+        const res = await fetch(AGG_URL, { method:'POST', headers:{'Content-Type':'application/json','x-api-key': prompt.startsWith('local:')? '': ''}, body: JSON.stringify({prompt}) });
+        const data = await res.json();
+        if(res.ok){ log(`Aggregator [${data.provider}]: ${data.text}`); } else { log(`Aggregator error: ${JSON.stringify(data)}`); }
+      }catch(err){ log('Aggregator request failed: '+(err.message||err)); }
+    });
+
+    async function refreshNetworkField(){
+      try{
+        const res = await fetch(FIELD_URL);
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || `status ${res.status}`);
+        document.getElementById('fieldLoad').textContent = data.load;
+        document.getElementById('fieldStream').textContent = data.activeStream;
+        document.getElementById('fieldMood').textContent = data.openSourceMood;
+        document.getElementById('fieldTools').textContent = data.availableTools.join(', ');
+      }catch(err){
+        log('Field refresh failed: '+(err.message||err));
+      }
+    }
+
+    async function invokeNetworkTool(toolName){
+      log(`Network Field: requesting ${toolName}`);
+      try{
+        const res = await fetch(TOOL_URL, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({tool: toolName, prompt: `Activate ${toolName} from Ω‑ƆREADƆS UI`})
+        });
+        const data = await res.json();
+        if(res.ok){
+          log(`Field tool [${data.tool || toolName}]: ${data.message || data.response || 'queued'}`);
+        } else {
+          log(`Field tool error: ${JSON.stringify(data)}`);
+        }
+      }catch(err){
+        log('Field tool request failed: '+(err.message||err));
+      }
+    }
+
+    const fieldWatcher = setInterval(refreshNetworkField, 5000);
+    refreshNetworkField();
+  </script>
+</body>
+</html>
