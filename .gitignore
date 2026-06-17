@@ -1,4 +1,13 @@
-__pycache__/
+node_modules/
+.env
+.env.local
+dist/
+coverage/
+.DS_Store
+/.vscode/
+npm-debug.log*
+docker-compose.override.yml
+*.log__pycache__/
 *.pyc
 .pytest_cache/
 .vscode/
