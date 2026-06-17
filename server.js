@@ -72,6 +72,62 @@ app.get('/api/job/:id', async (req, res) => {
   }
 });
 
+// Autopilot endpoint: run a sequence of local ops (create .env, start containers, run tests, smoke checks)
+app.post('/api/autopilot', async (req, res) => {
+  const payload = req.body || {};
+  const env = payload.env || {};
+  const doCommit = !!payload.commit;
+
+  const logs = [];
+  try {
+    // write .env if provided env object
+    if (Object.keys(env).length > 0) {
+      const pairs = Object.entries(env).map(([k, v]) => `${k}=${String(v || '')}`);
+      fs.writeFileSync(path.join(__dirname, '.env'), pairs.join('\n'));
+      logs.push('Wrote .env');
+    } else {
+      logs.push('No env provided; skipping .env write');
+    }
+
+    const runCmd = cmd => new Promise((resolve) => {
+      exec(cmd, { cwd: __dirname, env: process.env }, (err, stdout, stderr) => {
+        logs.push(`$ ${cmd}`);
+        if (stdout) logs.push(stdout.toString());
+        if (stderr) logs.push(stderr.toString());
+        resolve({ err, stdout: stdout && stdout.toString(), stderr: stderr && stderr.toString() });
+      });
+    });
+
+    await runCmd('docker compose up -d');
+    await runCmd('docker compose ps');
+    await runCmd('python -m unittest discover -s tests');
+    const dashCode = await runCmd('curl -sS -o /dev/null -w "%{http_code}" http://localhost:5000/dashboard || true');
+    logs.push('Dashboard HTTP code: ' + (dashCode.stdout || dashCode.stderr || 'unknown'));
+    const aggHealth = await runCmd('curl -sS http://localhost:5000/api/health || true');
+    logs.push('Aggregator health: ' + (aggHealth.stdout || aggHealth.stderr || 'unknown'));
+
+    // git status and optional commit
+    const status = await runCmd('git status --porcelain');
+    if (doCommit) {
+      if (status.stdout && status.stdout.trim().length > 0) {
+        await runCmd('git add -A');
+        await runCmd('git commit -m "autopilot: automated run"');
+        await runCmd('git push origin HEAD');
+        logs.push('Committed and pushed changes');
+      } else {
+        logs.push('No changes to commit');
+      }
+    } else {
+      logs.push('Commit skipped (doCommit=false)');
+    }
+
+    res.json({ ok: true, logs });
+  } catch (err) {
+    logs.push('Autopilot failed: ' + err.message);
+    res.status(500).json({ ok: false, logs, error: err.message });
+  }
+});
+
 // Serve dashboard
 app.get('/dashboard', (req, res) => {
   const dashboardPath = path.join(__dirname, 'dashboard.html');

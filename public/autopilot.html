@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Autopilot — One‑Drop OS</title>
+  <style>body{font-family:system-ui,Segoe UI,Roboto,Arial;padding:18px;background:#0f172a;color:#e6eef8}label{display:block;margin-top:8px}textarea,input{width:100%;padding:8px;margin-top:4px}</style>
+</head>
+<body>
+  <h2>Autopilot</h2>
+  <p>Fill env values you want written to `.env`, choose actions, then Run.</p>
+  <form id="auto">
+    <label>OPENAI_KEY<input type="text" name="OPENAI_KEY" placeholder="sk-..." /></label>
+    <label>OPENCLAW_URL<input type="text" name="OPENCLAW_URL" placeholder="https://..." /></label>
+    <label>OPENCLAW_KEY<input type="text" name="OPENCLAW_KEY" placeholder="key" /></label>
+    <label>FEBLE5_URL<input type="text" name="FEBLE5_URL" placeholder="https://..." /></label>
+    <label>FEBLE5_KEY<input type="text" name="FEBLE5_KEY" placeholder="key" /></label>
+    <label><input type="checkbox" name="commit" /> Commit & push changes (if any)</label>
+    <button type="submit">Run Autopilot</button>
+  </form>
+
+  <h3>Output</h3>
+  <pre id="out" style="background:#020617;padding:12px;border-radius:6px;overflow:auto;height:320px"></pre>
+
+  <script>
+    document.getElementById('auto').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const form = new FormData(e.target);
+      const env = {};
+      for (const [k,v] of form.entries()) {
+        if (k === 'commit') continue;
+        if (v && v.trim()) env[k] = v.trim();
+      }
+      const commit = form.get('commit') === 'on';
+      document.getElementById('out').textContent = 'Running autopilot...';
+      try {
+        const res = await fetch('/api/autopilot', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ env, commit }) });
+        const data = await res.json();
+        if (!data) throw new Error('no response');
+        document.getElementById('out').textContent = (data.logs || []).join('\n') + (data.error ? '\nERROR: '+data.error : '');
+      } catch (err) {
+        document.getElementById('out').textContent = 'Request failed: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
